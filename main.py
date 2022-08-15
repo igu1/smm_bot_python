@@ -41,9 +41,9 @@ def index():
             tel_send_message(chat_id, "Disclaimer: Non refill pack won't refill your followers")
             tel_send_message(chat_id,'''
                 Commands:
-                    1./packages {TYPE}
-                    2./status
-                    3./order
+                1./packages {TYPE}
+                2./status
+                3./order
             ''')
         elif "/packages" in txt:
             try:
