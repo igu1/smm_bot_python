@@ -19,37 +19,50 @@ def start(update: Update, context: CallbackContext):
         "Welcome To Hast-la Vista")
     update.message.reply_text("""Available Commands :-
     /start - To get the youtube URL
-    /packages - To get the LinkedIn profile URL
-    /status - To get gmail URL
+    /packages - usage: /package {service-id}
+    /services - to get service_id
     /order - To get the GeeksforGeeks URL""")
 
 
-def services(update: Update, context: CallbackContext):
+def get_services():
     list_service = []
     for x in followers.packages():
         if x['service'] not in list_service:
             list_service.append(x['service'])
+    return list_service
+
+
+def services(update: Update, context: CallbackContext):
+    list_service = get_services()
     message = ''
+    num = 0
     for x in list_service:
-        if x not in 'likee.com':
-            message += x
-            message += '\n'
+        message += str(num) + ": " + x
+        message += '\n'
+        num += 1
     update.message.reply_text(message)
 
 
 def packages(update: Update, context: CallbackContext):
     update.message.reply_text('Packages:')
-    service_type = context.args[0]
-    update.message.reply_text('Type: ' + service_type)
-    for x in followers.packages():
-        if service_type == str(x['service']).lower():
+    service_type = int(context.args[0])
+    selected_service = get_services()[service_type]
+    all_packages = followers.packages()
+
+    update.message.reply_text('Type: ' + selected_service)
+    for x in all_packages:
+        is_in_list = []
+        if selected_service == x['service'] and selected_service not in is_in_list:
             update.message.reply_text(
-                f'ID: {str(x["id"])}\nName:{str(x["name"])}\nRate: {str(x["rate"])}\nMin Quantity: {str(x["min"])}\nMax Quantity: {str(x["max"])}\nService: {str(x["service"])}')
+                f'ID: {str(x["id"])}\nName:{str(x["name"])}\nRate: {str(float(x["rate"]) + float(x["rate"]) * 0.25)[:6]}\nMin '
+                f'Quantity: {str(x["min"])}\nMax Quantity: {str(x["max"])}\nService: {str(x["service"])}')
+        else:
+            is_in_list.append(x['service'])
+            pass
 
 
 updater.dispatcher.add_handler(CommandHandler('start', start))
 updater.dispatcher.add_handler(CommandHandler('packages', packages))
-updater.dispatcher.add_handler(CommandHandler('service', services))
-
+updater.dispatcher.add_handler(CommandHandler('services', services))
 
 updater.start_polling()
