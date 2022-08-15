@@ -25,10 +25,7 @@ def packages():
         'action': 'packages'
     })
     data = r.json()
-    packs = []
-    for item in data:
-        packs.append(f'ID: {str(item["id"])}\nName:{str(item["name"])}\nRate: {str(item["rate"])}\nMin Quantity: {str(item["min"])}\nMax Quantity: {str(item["max"])}')
-    return packs
+    return data
 
 
 def status(id):
