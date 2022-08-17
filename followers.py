@@ -1,5 +1,6 @@
 import requests
 import json
+from currency_converter import CurrencyConverter
 
 api_token = '$2y$10$k.HNlr2BIl/YQ2o65FyTc.myahj0c3UMMc2JFLcgPxgjkiLyzQlp2'
 url = 'https://primesmm.com/api/v2'
@@ -27,15 +28,19 @@ def place_order(data):
 def packages():
     data = package_request.json()
     for x in data:
-        x['rate'] = str((float(x["rate"]) + (float(x["rate"]) * 0.75)))[:6]
+        x['rate'] = str(
+            float(x['rate']) + (float(x['rate']) / 2)
+        )
     return data
 
 
 def get_services():
+    black_list = []
     list_services = []
     for x in packages():
         if x['service'] not in list_services:
-            list_services.append(x['service'])
+            if x['service'] not in black_list:
+                list_services.append(x['service'])
     return list_services
 
 

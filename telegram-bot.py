@@ -24,8 +24,9 @@ def start(update: Update, context: CallbackContext):
         "Welcome To Hast-la Vista", reply_markup=markup)
 
 
-def get_item_amount(min_qua, quantity, rate):
-    return int(quantity) / int(min_qua) / 10 * float(rate)
+def get_item_amount(quantity, rate):
+    x = float(rate) / 1000
+    return x * int(quantity)
 
 
 def order(update: Update, context: CallbackContext):
@@ -34,26 +35,35 @@ def order(update: Update, context: CallbackContext):
             if context.args[0] in str(x['id']):
                 if int(x['min']) <= int(context.args[1]) <= int(x['max']):
                     c = CurrencyConverter()
-                    amount = c.convert(get_item_amount(float(x["min"]), context.args[1], float(x["rate"])), 'USD',
-                                       'INR')
+                    amount = get_item_amount(context.args[1], float(x["rate"]))
+                    msg = ''
                     if float(amount) < 10:
                         amount = 10.00
-                    update.message.reply_text(
-                        f'Minimum amount your should pay is 10₹\n---------------------------    \nTotal Amount You '
-                        f'Should Pay: {str(round(amount, 2))[:10]}₹',
-                        reply_markup=InlineKeyboardMarkup(
-                            [[InlineKeyboardButton(text="Confirm And Contact With Admin", callback_data='order_' +
-                                                                                                        str(x[
-                                                                                                                'id']) + f'_{context.args[1]}')],
-                             [InlineKeyboardButton(text="Cancel", callback_data='delete_confirm_msg')]
-                             ]
-                        ))
-
+                        msg = 'Minimum amount your should pay is 10₹\n-------------------------------------\n'
+                    if update.message is not None:
+                        update.message.reply_text(msg + f'Total Amount You Should Pay: {str(round(amount, 2))[:10]}₹',
+                                                  reply_markup=InlineKeyboardMarkup(
+                                                      [[InlineKeyboardButton(text="Confirm And Contact With Admin",
+                                                                             callback_data='order_' +
+                                                                                           str(x[
+                                                                                                   'id']) + f'_{context.args[1]}')],
+                                                       [InlineKeyboardButton(text="Cancel",
+                                                                             callback_data='delete_confirm_msg')]
+                                                       ]
+                                                  ))
+                    else:
+                        updater.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, you can't edit this "
+                                                                                        "message")
                 else:
-                    update.message.reply_text(context.args[1] + " Its Invalid Quantity. Please check you order. "
-                                                                "Quantity should be between " + str(x['min']) + " and"
-                                                                                                                " " +
-                                              str(x['max']))
+                    if update.message is not None:
+                        update.message.reply_text(context.args[1] + " Its Invalid Quantity. Please check you order. "
+                                                                    "Quantity should be between " + str(
+                            x['min']) + " and"
+                                        " " +
+                                                  str(x['max']))
+                    else:
+                        updater.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, you can't edit this "
+                                                                                        "message")
 
     else:
         update.message.reply_text('How to order:\n /order {package_id} {quantity}')
@@ -62,26 +72,16 @@ def order(update: Update, context: CallbackContext):
                                   'Id\n4500 = No. of followers you want')
 
 
-# def services(update: Update, context: CallbackContext):
-#     btn = []
-#     markup = InlineKeyboardMarkup(btn, resize_keyboard=True)
-#     for x in range(len(list_service)):
-#         btn.append([InlineKeyboardButton(text=f"ID: {x}|{list_service[x]}", callback_data=f"service1_{x}")])
-#     message = ''
-#     num = 0
-#     for x in list_service:
-#         message += str(num) + ": " + x
-#         message += '\n'
-#         num += 1
-#     update.message.reply_text("Select the service you want:", reply_markup=markup)
-
-
 def send_packages(selected_service, chat_id):
+    c = CurrencyConverter()
     for x in all_packages:
         is_in_list = []
         if selected_service == x['service'] and selected_service not in is_in_list:
+            rate = float(x['rate'])
+            round(c.convert(rate, 'USD', 'INR'), 1)
             updater.bot.send_message(chat_id=chat_id,
-                                     text=f'ID: {str(x["id"])}\nName:{str(x["name"])}\nRate: {str(x["rate"])}\nMin '
+                                     text=f'ID: {str(x["id"])}\nName:{str(x["name"])}\nRate: {str(rate)} For 1000 '
+                                          f'Quantity\nMin '
                                           f'Quantity: {str(x["min"])}\nMax Quantity: {str(x["max"])}\nService: {str(x["service"])}',
                                      reply_markup=InlineKeyboardMarkup(
                                          [[InlineKeyboardButton("Buy", callback_data=f'buy_{x["id"]}', pay=True),
@@ -125,7 +125,6 @@ def keyboard_callback(update, context):
         print(data)
     if 'service' == str(data).split('_')[0]:
         message_id = query.message.message_id
-
         btn = [[]]
         markup = InlineKeyboardMarkup(btn, resize_keyboard=True)
         for x in range(len(list_service)):
@@ -148,7 +147,8 @@ def keyboard_callback(update, context):
                                  text=f'Hey {first_name_user}, \n------------------------------------------\nUse:\n'
                                       f'    /order {str(data).split("_")[1]} [quantity'
                                       f']\n------------------------------------------',
-                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Cancel", callback_data='delete_confirm_msg')]]))
+                                 reply_markup=InlineKeyboardMarkup(
+                                     [[InlineKeyboardButton(text="Cancel", callback_data='delete_confirm_msg')]]))
     if 'like' == str(data).split('_')[0]:
         print(data)
     if 'order' == str(data).split('_')[0]:
@@ -160,24 +160,25 @@ def keyboard_callback(update, context):
         username = query.message.chat.username
         message = query.message.text
         message_id = query.message.message_id
-        real_amount = (int(str(data).split('_')[2]) / int(package['min'] / 10)) \
-                      * round(float(followers.get_real_amount(package)), 2)
+        real_amount = (get_item_amount(str(data).split('_')[2], str(float(package['rate']) - (float(package['rate'])/2))))
         c = CurrencyConverter()
-        amount = c.convert(get_item_amount(float(package["min"]), str(data).split('_')[2], float(package["rate"])),
-                           'USD', 'INR')
+        amount = get_item_amount(str(data).split('_')[2], float(package["rate"]))
+        if int(amount) < 10:
+            amount = 10
         try:
             updater.bot.send_message(chat_id=group_id,
                                      text=f'Hey Admin, \n------------------------------------------\n'
                                           f'YOU HAVE A NEW ORDER | ID: {package["id"]}'
                                           f'\n------------------------------------------\n'
-                                          f' Total Amount: {round(amount, 2)}\n'
+                                          f'Total Amount: {round(amount, 2)}\n'
                                           f'Quantity: {str(data).split("_")[2]}\n\n'
                                           f'ID: {str(package["id"])}\nName:{str(package["name"])}\nRate: {str(package["rate"])}\nMin '
                                           f'Quantity: {str(package["min"])}\nMax Quantity: {str(package["max"])}\nService: {str(package["service"])}\n\n'
                                           f'Admin Should Pay: {real_amount}'
                                           f'\nFrom @{username}')
             updater.bot.edit_message_text(chat_id=query.message.chat.id, message_id=message_id,
-                                          text="------------------------------------------------------------\nAdmin will "
+                                          text="------------------------------------------------------------\nAdmin "
+                                               "will "
                                                "contact "
                                                "you within 1-2 "
                                                "hours\n"
@@ -193,8 +194,8 @@ def keyboard_callback(update, context):
                                           text='We are really sorry there is a '
                                                'problam with our bot, Bot will be back '
                                                'soon!🌹🌹')
+
         except:
-            print("Error")
             updater.bot.edit_message_text(chat_id=query.message.chat.id, text='We are really sorry there is a '
                                                                               'problam with our bot, Bot will be back '
                                                                               'soon!🌹🌹')
