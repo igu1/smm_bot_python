@@ -1,4 +1,5 @@
 import requests
+import telegram.error
 from telegram import *
 from telegram.ext import *
 from currency_converter import CurrencyConverter
@@ -24,11 +25,11 @@ def start(update: Update, context: CallbackContext):
 
 
 def get_item_amount(min_qua, quantity, rate):
-    return int(quantity) / int(min_qua * 10) * rate
+    return int(quantity) / int(min_qua) / 10 * float(rate)
 
 
 def order(update: Update, context: CallbackContext):
-    if 0 < len(context.args) < 3:
+    if 0 < len(context.args) < 3 and len(context.args) != 1:
         for x in all_packages:
             if context.args[0] in str(x['id']):
                 if int(x['min']) <= int(context.args[1]) <= int(x['max']):
@@ -39,10 +40,13 @@ def order(update: Update, context: CallbackContext):
                         amount = 10.00
                     update.message.reply_text(
                         f'Minimum amount your should pay is 10₹\n---------------------------    \nTotal Amount You '
-                        f'Should Pay: {str(amount)[:10]}₹',
+                        f'Should Pay: {str(round(amount, 2))[:10]}₹',
                         reply_markup=InlineKeyboardMarkup(
-                            [[InlineKeyboardButton(text="Contact With Admin", url='https://www.instagram.com/direct/t/340282366841710300949128215792275283509' ,callback_data='order_' +
-                                                                                                           str(x['id']))]]
+                            [[InlineKeyboardButton(text="Confirm And Contact With Admin", callback_data='order_' +
+                                                                                                        str(x[
+                                                                                                                'id']) + f'_{context.args[1]}')],
+                             [InlineKeyboardButton(text="Cancel", callback_data='delete_confirm_msg')]
+                             ]
                         ))
 
                 else:
@@ -110,10 +114,13 @@ def keyboard_callback(update, context):
         query.answer()
         message_id = query.message.message_id
         updater.bot.edit_message_text(chat_id=query.message.chat.id, message_id=message_id,
-                                      text=f"Selected Service: {list_service[int(service_id)]}",
+                                      text=f"------------------------------------------\nSelected Service: {list_service[int(service_id)]}\n------------------------------------------",
                                       reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Show Packages",
                                                                                                callback_data=
                                                                                                "showpackages_" + service_id)]]))
+    if 'delete_confirm_msg' == data:
+        message_id = query.message.message_id
+        updater.bot.delete_message(chat_id=query.message.chat.id, message_id=message_id)
     if 'start_packages' == data:
         print(data)
     if 'service' == str(data).split('_')[0]:
@@ -133,27 +140,70 @@ def keyboard_callback(update, context):
                                  reply_markup=markup)
 
     if 'buy' == str(data).split('_')[0]:
-
         first_name_user = query.message.chat.first_name
         username = query.message.chat.username
         message = query.message.text
         message_id = query.message.message_id
         updater.bot.send_message(chat_id=query.message.chat.id,
-                                 text=f'Hey {first_name_user}, \n------------------------------------------\n\nUse:\n'
-                                                                     f'    /order {str(data).split("_")[1]} [quantity'
-                                                                     f']\n\n------------------------------------------')
+                                 text=f'Hey {first_name_user}, \n------------------------------------------\nUse:\n'
+                                      f'    /order {str(data).split("_")[1]} [quantity'
+                                      f']\n------------------------------------------',
+                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Cancel", callback_data='delete_confirm_msg')]]))
     if 'like' == str(data).split('_')[0]:
         print(data)
     if 'order' == str(data).split('_')[0]:
-        pass
+        group_id = '-540079132'
+        package = {}
+        for x in all_packages:
+            if str(x['id']) == str(data).split('_')[1]:
+                package = x
+        username = query.message.chat.username
+        message = query.message.text
+        message_id = query.message.message_id
+        real_amount = (int(str(data).split('_')[2]) / int(package['min'] / 10)) \
+                      * round(float(followers.get_real_amount(package)), 2)
+        c = CurrencyConverter()
+        amount = c.convert(get_item_amount(float(package["min"]), str(data).split('_')[2], float(package["rate"])),
+                           'USD', 'INR')
+        try:
+            updater.bot.send_message(chat_id=group_id,
+                                     text=f'Hey Admin, \n------------------------------------------\n'
+                                          f'YOU HAVE A NEW ORDER | ID: {package["id"]}'
+                                          f'\n------------------------------------------\n'
+                                          f' Total Amount: {round(amount, 2)}\n'
+                                          f'Quantity: {str(data).split("_")[2]}\n\n'
+                                          f'ID: {str(package["id"])}\nName:{str(package["name"])}\nRate: {str(package["rate"])}\nMin '
+                                          f'Quantity: {str(package["min"])}\nMax Quantity: {str(package["max"])}\nService: {str(package["service"])}\n\n'
+                                          f'Admin Should Pay: {real_amount}'
+                                          f'\nFrom @{username}')
+            updater.bot.edit_message_text(chat_id=query.message.chat.id, message_id=message_id,
+                                          text="------------------------------------------------------------\nAdmin will "
+                                               "contact "
+                                               "you within 1-2 "
+                                               "hours\n"
+                                               "------------------------------------------------------------")
+        except telegram.error.Unauthorized:
+            print("I Think The Bot Not The Group Anymore...!")
+            updater.bot.edit_message_text(chat_id=query.message.chat.id, text='We are really sorry there is a '
+                                                                              'problam with our bot, Bot will be back '
+                                                                              'soon!🌹🌹')
+        except telegram.error.BadRequest:
+            print("Invalid chat id or something... its a bad request")
+            updater.bot.edit_message_text(chat_id=query.message.chat.id, message_id=message_id,
+                                          text='We are really sorry there is a '
+                                               'problam with our bot, Bot will be back '
+                                               'soon!🌹🌹')
+        except:
+            print("Error")
+            updater.bot.edit_message_text(chat_id=query.message.chat.id, text='We are really sorry there is a '
+                                                                              'problam with our bot, Bot will be back '
+                                                                              'soon!🌹🌹')
     if 'showpackages' == str(data).split('_')[0]:
         chat_id = query.message.chat.id
         send_packages(list_service[int(str(data).split('_')[1])], chat_id)
 
 
 updater.dispatcher.add_handler(CommandHandler('start', start))
-updater.dispatcher.add_handler(CommandHandler('packages', packages))
-# updater.dispatcher.add_handler(CommandHandler('service', services))
 updater.dispatcher.add_handler(CommandHandler('order', order))
 
 updater.dispatcher.add_handler(CallbackQueryHandler(keyboard_callback))
