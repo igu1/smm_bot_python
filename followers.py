@@ -25,7 +25,17 @@ def packages():
         'action': 'packages'
     })
     data = r.json()
+    for x in data:
+        x['rate'] = str((float(x["rate"]) + (float(x["rate"]) * 0.75)))[:6]
     return data
+
+
+def get_services():
+    list_services = []
+    for x in packages():
+        if x['service'] not in list_services:
+            list_services.append(x['service'])
+    return list_services
 
 
 def status(id):
